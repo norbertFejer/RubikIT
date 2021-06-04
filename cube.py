@@ -4,6 +4,8 @@ import copy
 
 import numpy as np
 
+import unittest
+
 CUBE_SIZE = 3
 
 
@@ -114,12 +116,12 @@ class Cube:
         return face[int(column_type.value)::CUBE_SIZE]
 
 
-    def __change_colors(self, original_colors, new_colors):
+    def __copy_colors(self, original_colors, new_colors):
         for i in range(len(original_colors)):
             original_colors[i].value = new_colors[i].value
 
 
-    def __change_colors_reversed(self, original_colors, new_colors):
+    def __copy_colors_reversed_order(self, original_colors, new_colors):
         for i in range(len(original_colors)):
             original_colors[i].value = new_colors[len(original_colors) - 1 - i].value
 
@@ -135,15 +137,15 @@ class Cube:
 
 
         if direction == RowRotation.RIGHT:
-            self.__change_colors(right_row, front_row)
-            self.__change_colors(back_row, original_right_row)
-            self.__change_colors(left_row, original_back_row)
-            self.__change_colors(front_row, original_left_row)
+            self.__copy_colors(right_row, front_row)
+            self.__copy_colors(back_row, original_right_row)
+            self.__copy_colors(left_row, original_back_row)
+            self.__copy_colors(front_row, original_left_row)
         elif direction == RowRotation.LEFT:
-            self.__change_colors(left_row, front_row)
-            self.__change_colors(back_row, original_left_row)
-            self.__change_colors(right_row, original_back_row)
-            self.__change_colors(front_row, original_right_row)
+            self.__copy_colors(left_row, front_row)
+            self.__copy_colors(back_row, original_left_row)
+            self.__copy_colors(right_row, original_back_row)
+            self.__copy_colors(front_row, original_right_row)
 
 
         if row_type != RowType.MIDDLE:
@@ -162,15 +164,15 @@ class Cube:
             original_left_pieces = copy.deepcopy(left_pieces)
 
             if direction == RowRotation.RIGHT:
-                self.__change_colors_reversed(right_pieces, front_pieces)
-                self.__change_colors(back_pieces, original_right_pieces)
-                self.__change_colors_reversed(left_pieces, original_back_pieces)
-                self.__change_colors(front_pieces, original_left_pieces)
+                self.__copy_colors_reversed_order(right_pieces, front_pieces)
+                self.__copy_colors(back_pieces, original_right_pieces)
+                self.__copy_colors_reversed_order(left_pieces, original_back_pieces)
+                self.__copy_colors(front_pieces, original_left_pieces)
             elif direction == RowRotation.LEFT:
-                self.__change_colors(left_pieces, front_pieces)
-                self.__change_colors_reversed(back_pieces, original_left_pieces)
-                self.__change_colors(right_pieces, original_back_pieces)
-                self.__change_colors_reversed(front_pieces, original_right_pieces)
+                self.__copy_colors(left_pieces, front_pieces)
+                self.__copy_colors_reversed_order(back_pieces, original_left_pieces)
+                self.__copy_colors(right_pieces, original_back_pieces)
+                self.__copy_colors_reversed_order(front_pieces, original_right_pieces)
 
 
     def rotate_column(self, column_type, direction):
@@ -192,15 +194,15 @@ class Cube:
 
 
         if direction == ColumnRotation.UP:
-            self.__change_colors(top_column, front_column)
-            self.__change_colors_reversed(back_column, original_top_column)
-            self.__change_colors_reversed(bottom_column, original_back_column)
-            self.__change_colors(front_column, original_bottom_column)
+            self.__copy_colors(top_column, front_column)
+            self.__copy_colors_reversed_order(back_column, original_top_column)
+            self.__copy_colors_reversed_order(bottom_column, original_back_column)
+            self.__copy_colors(front_column, original_bottom_column)
         elif direction == ColumnRotation.DOWN:
-            self.__change_colors(bottom_column, front_column)
-            self.__change_colors_reversed(back_column, original_bottom_column)
-            self.__change_colors_reversed(top_column, original_back_column)
-            self.__change_colors(front_column, original_top_column)
+            self.__copy_colors(bottom_column, front_column)
+            self.__copy_colors_reversed_order(back_column, original_bottom_column)
+            self.__copy_colors_reversed_order(top_column, original_back_column)
+            self.__copy_colors(front_column, original_top_column)
 
 
         if column_type != ColumnType.MIDDLE:
@@ -224,19 +226,120 @@ class Cube:
             original_top_pieces = copy.deepcopy(top_pieces)
 
             if direction == ColumnRotation.UP:
-                self.__change_colors(top_pieces, front_pieces)
-                self.__change_colors_reversed(back_pieces, original_top_pieces)
-                self.__change_colors(bottom_pieces, original_back_pieces)
-                self.__change_colors_reversed(front_pieces, original_bottom_pieces)
+                self.__copy_colors(top_pieces, front_pieces)
+                self.__copy_colors_reversed_order(back_pieces, original_top_pieces)
+                self.__copy_colors(bottom_pieces, original_back_pieces)
+                self.__copy_colors_reversed_order(front_pieces, original_bottom_pieces)
             elif direction == ColumnRotation.DOWN:
-                self.__change_colors_reversed(bottom_pieces, front_pieces)
-                self.__change_colors(back_pieces, original_bottom_pieces)
-                self.__change_colors_reversed(top_pieces, original_back_pieces)
-                self.__change_colors(front_pieces, original_top_pieces)
+                self.__copy_colors_reversed_order(bottom_pieces, front_pieces)
+                self.__copy_colors(back_pieces, original_bottom_pieces)
+                self.__copy_colors_reversed_order(top_pieces, original_back_pieces)
+                self.__copy_colors(front_pieces, original_top_pieces)
 
-            
 
-if __name__ == "__main__":
+class TestCube(unittest.TestCase):
+
+    def setUp(self):
+        self.cube_solved = Cube("    GGG\n"
+                                "    GGG\n"
+                                "    GGG\n"
+                                "RRR WWW OOO YYY\n"
+                                "RRR WWW OOO YYY\n"
+                                "RRR WWW OOO YYY\n"
+                                "    BBB\n"
+                                "    BBB\n"
+                                "    BBB")
+
+    
+    def test_cube_str (self):
+        self.assertEqual(str(self.cube_solved),     "    GGG\n"
+                                                    "    GGG\n"
+                                                    "    GGG\n"
+                                                    "RRR WWW OOO YYY\n"
+                                                    "RRR WWW OOO YYY\n"
+                                                    "RRR WWW OOO YYY\n"
+                                                    "    BBB\n"
+                                                    "    BBB\n"
+                                                    "    BBB")
+
+
+    def test_cube_get_item (self):
+        self.assertEqual(self.cube_solved[0].value, 'G')
+        self.assertEqual(self.cube_solved[9].value, 'R')
+
+
+    def test_cube_get_face (self):
+        front_face = self.cube_solved._Cube__get_face(FaceType.FRONT)
+        self.assertEqual (len(front_face), 9)
+        for cubie in front_face:
+            self.assertEqual(cubie.value, 'W')
+
+        back_face = self.cube_solved._Cube__get_face(FaceType.BACK)
+        self.assertEqual (len(back_face), 9)
+        for cubie in back_face:
+            self.assertEqual(cubie.value, 'Y')
+
+
+    def test_cube_get_row_of_face (self):
+        row = self.cube_solved._Cube__get_row_of_face(RowType.TOP, FaceType.FRONT)
+        self.assertEqual (len(row), 3)
+        for cubie in row:
+            self.assertEqual(cubie.value, 'W')
+
+        row = self.cube_solved._Cube__get_row_of_face(RowType.MIDDLE, FaceType.RIGHT)
+        self.assertEqual (len(row), 3)
+        for cubie in row:
+            self.assertEqual(cubie.value, 'O')
+
+    
+    def test_cube_get_column_of_face (self):
+        column = self.cube_solved._Cube__get_column_of_face(ColumnType.LEFT, FaceType.LEFT)
+        self.assertEqual (len(column), 3)
+        for cubie in column:
+            self.assertEqual(cubie.value, 'R')
+
+        column = self.cube_solved._Cube__get_column_of_face(ColumnType.RIGHT, FaceType.BOTTOM)
+        self.assertEqual (len(column), 3)
+        for cubie in column:
+            self.assertEqual(cubie.value, 'B')
+
+
+    def test_cube_copy_colors (self):
+        column1 = self.cube_solved._Cube__get_column_of_face(ColumnType.LEFT, FaceType.FRONT)
+        column2 = self.cube_solved._Cube__get_column_of_face(ColumnType.RIGHT, FaceType.LEFT)
+
+        for cubie in column1:
+            self.assertEqual(cubie.value, 'W')
+        for cubie in column2:
+            self.assertEqual(cubie.value, 'R')
+
+        self.cube_solved._Cube__copy_colors(column1, column2)
+
+        for cubie in column1:
+            self.assertEqual(cubie.value, 'R')
+        for cubie in column2:
+            self.assertEqual(cubie.value, 'R')
+
+
+    def test_cube_copy_colors_reversed_order (self):
+        column1 = self.cube_solved._Cube__get_column_of_face(ColumnType.LEFT, FaceType.FRONT)
+        column2 = self.cube_solved._Cube__get_column_of_face(ColumnType.RIGHT, FaceType.LEFT)
+
+        for cubie in column1:
+            self.assertEqual(cubie.value, 'W')
+        for cubie in column2:
+            self.assertEqual(cubie.value, 'R')
+
+        self.cube_solved._Cube__copy_colors(column1, column2)
+
+        for cubie in column1:
+            self.assertEqual(cubie.value, 'R')
+        for cubie in column2:
+            self.assertEqual(cubie.value, 'R')
+
+
+
+def testMain ():
     cube = Cube("    GGG\n"
                 "    HGG\n"
                 "    JGG\n"
@@ -251,3 +354,7 @@ if __name__ == "__main__":
 
     print()
     print(cube)
+            
+
+if __name__ == "__main__":
+    unittest.main()
