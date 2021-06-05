@@ -17,6 +17,12 @@ class ColumnRotation(Enum):
     UP = 0
     DOWN = 1
 
+class CubeRotation(Enum):
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGTH = 3
+
 class RowType(Enum):
     TOP = 0
     MIDDLE = 1
@@ -208,19 +214,18 @@ class Cube:
         front_column = self.__get_column_of_face(column_type, FaceType.FRONT)
         bottom_column = self.__get_column_of_face(column_type, FaceType.BOTTOM)
         original_bottom_column = copy.deepcopy(bottom_column)
+
         # here the inverse is needed, because the face is directed
         if column_type == ColumnType.LEFT:
-            column_type_directed = ColumnType.RIGHT
+            back_column = self.__get_column_of_face(ColumnType.RIGHT, FaceType.BACK)
         elif column_type == ColumnType.RIGHT:
-            column_type_directed = ColumnType.LEFT
+            back_column = self.__get_column_of_face(ColumnType.LEFT, FaceType.BACK)
         else:
-            column_type_directed = column_type
+            back_column = self.__get_column_of_face(ColumnType.MIDDLE, FaceType.BACK)
 
-        back_column = self.__get_column_of_face(column_type_directed, FaceType.BACK)
         original_back_column = copy.deepcopy(back_column)
         top_column = self.__get_column_of_face(column_type, FaceType.TOP)
         original_top_column = copy.deepcopy(top_column)
-
 
         if direction == ColumnRotation.UP:
             self.__copy_colors(top_column, front_column)
@@ -235,35 +240,52 @@ class Cube:
 
 
         if column_type != ColumnType.MIDDLE:
-
+        
             if column_type == ColumnType.LEFT:
-                face_type = FaceType.LEFT
+                front_pieces = self.__get_column_of_face(ColumnType.RIGHT, FaceType.LEFT)
+                back_pieces = self.__get_column_of_face(ColumnType.LEFT, FaceType.LEFT)
+                original_back_pieces = copy.deepcopy(back_pieces)
+                bottom_pieces = self.__get_row_of_face(RowType.BOTTOM, FaceType.LEFT)
+                original_bottom_pieces = copy.deepcopy(bottom_pieces)
+                top_pieces = self.__get_row_of_face(RowType.TOP, FaceType.LEFT)
+                original_top_pieces = copy.deepcopy(top_pieces)
+
+                if direction == ColumnRotation.UP:
+                    self.__copy_colors(top_pieces, front_pieces)
+                    self.__copy_colors_reversed_order(back_pieces, original_top_pieces)
+                    self.__copy_colors(bottom_pieces, original_back_pieces)
+                    self.__copy_colors_reversed_order(front_pieces, original_bottom_pieces)
+                elif direction == ColumnRotation.DOWN:
+                    self.__copy_colors_reversed_order(bottom_pieces, front_pieces)
+                    self.__copy_colors(back_pieces, original_bottom_pieces)
+                    self.__copy_colors_reversed_order(top_pieces, original_back_pieces)
+                    self.__copy_colors(front_pieces, original_top_pieces)
+            # solving the right face
             else:
-                face_type = FaceType.RIGHT
+                front_pieces = self.__get_column_of_face(ColumnType.LEFT, FaceType.RIGHT)
+                back_pieces = self.__get_column_of_face(ColumnType.RIGHT, FaceType.RIGHT)
+                original_back_pieces = copy.deepcopy(back_pieces)
+                bottom_pieces = self.__get_row_of_face(RowType.BOTTOM, FaceType.RIGHT)
+                original_bottom_pieces = copy.deepcopy(bottom_pieces)
+                top_pieces = self.__get_row_of_face(RowType.TOP, FaceType.RIGHT)
+                original_top_pieces = copy.deepcopy(top_pieces)
 
-            if face_type == FaceType.LEFT:
-                front_pieces = self.__get_column_of_face(ColumnType.RIGHT, face_type)
-                back_pieces = self.__get_column_of_face(ColumnType.LEFT, face_type)
-            else:
-                front_pieces = self.__get_column_of_face(ColumnType.LEFT, face_type)
-                back_pieces = self.__get_column_of_face(ColumnType.RIGHT, face_type)
+                if direction == ColumnRotation.UP:
+                    self.__copy_colors(top_pieces, front_pieces)
+                    self.__copy_colors(back_pieces, original_top_pieces)
+                    self.__copy_colors_reversed_order(bottom_pieces, original_back_pieces)
+                    self.__copy_colors(front_pieces, original_bottom_pieces)
+                elif direction == ColumnRotation.DOWN:
+                    self.__copy_colors(bottom_pieces, front_pieces)
+                    self.__copy_colors_reversed_order(back_pieces, original_bottom_pieces)
+                    self.__copy_colors(top_pieces, original_back_pieces)
+                    self.__copy_colors_reversed_order(front_pieces, original_top_pieces)
 
-            original_back_pieces = copy.deepcopy(back_pieces)
-            bottom_pieces = self.__get_row_of_face(RowType.BOTTOM, face_type)
-            original_bottom_pieces = copy.deepcopy(bottom_pieces)
-            top_pieces = self.__get_row_of_face(RowType.TOP, face_type)
-            original_top_pieces = copy.deepcopy(top_pieces)
-
-            if direction == ColumnRotation.UP:
-                self.__copy_colors(top_pieces, front_pieces)
-                self.__copy_colors_reversed_order(back_pieces, original_top_pieces)
-                self.__copy_colors(bottom_pieces, original_back_pieces)
-                self.__copy_colors_reversed_order(front_pieces, original_bottom_pieces)
-            elif direction == ColumnRotation.DOWN:
-                self.__copy_colors_reversed_order(bottom_pieces, front_pieces)
-                self.__copy_colors(back_pieces, original_bottom_pieces)
-                self.__copy_colors_reversed_order(top_pieces, original_back_pieces)
-                self.__copy_colors(front_pieces, original_top_pieces)
+    def rotate_cube (self, rotation):
+        if rotation == CubeRotation.UP:
+            self.rotate_column(ColumnType.LEFT, ColumnRotation.UP)
+            self.rotate_column(ColumnType.MIDDLE, ColumnRotation.UP)
+            self.rotate_column(ColumnType.RIGHT, ColumnRotation.UP)
 
 
 class TestCube(unittest.TestCase):
@@ -551,9 +573,216 @@ class TestCube(unittest.TestCase):
                             "    GBR")
 
         cube.rotate_row(RowType.BOTTOM, RowRotation.LEFT)
-        print()
-        print(cube)
         self.assertTrue (cube == cube_rotated)
+
+
+    def test_cube_rotate_left_column_up (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    OOG\n"
+                            "    OGW\n"
+                            "    OBR\n"
+                            "BWY GYB WGR WYW\n"
+                            "RWW BOO GYR YRB\n"
+                            "YYY RGO WBY GRO\n"
+                            "    BRG\n"
+                            "    GBO\n"
+                            "    BWR")
+
+        cube.rotate_column(ColumnType.LEFT, ColumnRotation.UP)
+        self.assertTrue (cube == cube_rotated)
+
+
+    def test_cube_rotate_middle_column_up (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    OYG\n"
+                            "    BOW\n"
+                            "    WGR\n"
+                            "YRB ORB WGR WBB\n"
+                            "YWW OBO GYR YGG\n"
+                            "YWY OWO WBY GOB\n"
+                            "    GRG\n"
+                            "    BRO\n"
+                            "    RYR")
+
+        cube.rotate_column(ColumnType.MIDDLE, ColumnRotation.UP)
+        self.assertTrue (cube == cube_rotated)
+
+
+    def test_cube_rotate_right_column_up (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    OOB\n"
+                            "    BGO\n"
+                            "    WBO\n"
+                            "YRB OYG WGW RYB\n"
+                            "YWW OOO BYG WRG\n"
+                            "YWY OGR YRR GRB\n"
+                            "    GRG\n"
+                            "    BBY\n"
+                            "    RWW")
+
+        cube.rotate_column(ColumnType.RIGHT, ColumnRotation.UP)
+        self.assertTrue (cube == cube_rotated)
+
+
+    def test_cube_rotate_left_column_down (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    BOG\n"
+                            "    GGW\n"
+                            "    BBR\n"
+                            "YYY OYB WGR WYR\n"
+                            "WWR BOO GYR YRB\n"
+                            "YWB WGO WBY GRG\n"
+                            "    ORG\n"
+                            "    OBO\n"
+                            "    OWR")
+
+        cube.rotate_column(ColumnType.LEFT, ColumnRotation.DOWN)
+        self.assertTrue (cube == cube_rotated)
+
+
+    def test_cube_rotate_middle_column_down (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    ORG\n"
+                            "    BRW\n"
+                            "    WYR\n"
+                            "YRB OOB WGR WWB\n"
+                            "YWW OGO GYR YBG\n"
+                            "YWY OBO WBY GRB\n"
+                            "    GYG\n"
+                            "    BOO\n"
+                            "    RGR")
+
+        cube.rotate_column(ColumnType.MIDDLE, ColumnRotation.DOWN)
+        self.assertTrue (cube == cube_rotated)
+
+
+    def test_cube_rotate_right_column_down (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    OOG\n"
+                            "    BGY\n"
+                            "    WBW\n"
+                            "YRB OYG RRY RYB\n"
+                            "YWW OOW GYB ORG\n"
+                            "YWY OGR WGW GRB\n"
+                            "    GRB\n"
+                            "    BBO\n"
+                            "    RWO")
+
+        cube.rotate_column(ColumnType.RIGHT, ColumnRotation.DOWN)
+        self.assertTrue (cube == cube_rotated)
+
+    
+    def test_rotate_cube_up (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    OYB\n"
+                            "    OOO\n"
+                            "    OGO\n"
+                            "BWY GRG WGW RBW\n"
+                            "RWW BBO BYG WGB\n"
+                            "YYY RWR YRR GOO\n"
+                            "    BRG\n"
+                            "    GRY\n"
+                            "    BYW")
+
+        cube.rotate_cube(CubeRotation.UP)
+        self.assertTrue (cube == cube_rotated)
+
+
+    def test_rotate_cube_down (self):
+        cube = Cube("    OOG\n"
+                    "    BGW\n"
+                    "    WBR\n"
+                    "YRB OYB WGR WYB\n"
+                    "YWW OOO GYR YRG\n"
+                    "YWY OGO WBY GRB\n"
+                    "    GRG\n"
+                    "    BBO\n"
+                    "    RWR")
+
+
+        cube_rotated = Cube("    BRG\n"
+                            "    GRY\n"
+                            "    BYW\n"
+                            "YYY OOG RRY RWR\n"
+                            "WWR BGW GYB OBB\n"
+                            "YWB WBR WGW GRG\n"
+                            "    OYB\n"
+                            "    OOO\n"
+                            "    OGO")
+
+        cube.rotate_cube(CubeRotation.DOWN)
+        self.assertTrue (cube == cube_rotated)
+
 
 
 
