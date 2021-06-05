@@ -33,88 +33,183 @@ def get_mapped_color_name(color):
     return closest_color_name
 
 
+class ImageLoader:
+    def __init__(self):
+        pass
+
+    def load_image (self, path, image_name):
+        return cv2.imread(path + '/' + image_name)
+
+
+class ImageHandler:
+    def __init__(self):
+        pass
+
+    
+    def resize_image (self, image, new_size_x, new_size_y):
+        return cv2.resize(image, (new_size_x, new_size_y))
+
+    
+    def copy_image (self, image):
+        return image.copy ()
+
+
+    def convert_to_grayscale (self, image):
+        return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+
+    def convert_to_hsv (self, image):
+        return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    
+    def show_image (self, image, image_name=''):
+        cv2.imshow(image_name, image)
+
+
+    def get_edges_from_image (self, image, kernel_size_x, kernel_size_y):
+        return cv2.Canny(image, kernel_size_x, kernel_size_y)
+
+
+    def __create_new_kernel (self, kernel_size_x, kernel_size_y):
+        return np.ones((kernel_size_x, kernel_size_y), np.uint8)
+
+
+    def dilatate_edges (self, edges, iter_num = 3):
+        kernel = self.__create_new_kernel (5, 5)
+        return cv2.dilate(edges, kernel, iterations = iter_num)
+
+    
+    def get_contours_from_image (self, image):
+        raw_contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        return raw_contours
+
+
+    def get_four_corners (self, contours, max_accepted_area):
+        four_corners = []
+        four_corners_area_sum = 0
+        for cnt in contours:
+            epsilon = 0.1 * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+
+            if 4 == len(approx):
+                area = cv2.contourArea(cnt)
+
+                if area < max_accepted_area:
+                    four_corners.append(cnt)
+                    four_corners_area_sum += area
+
+        return four_corners, four_corners_area_sum
+
+
+    def get_cube_pieces (self, four_corners, treshold_area):
+        extracted_edges = []
+        for cnt in four_corners:
+            area = cv2.contourArea(cnt)
+            if area > treshold_area:
+                extracted_edges.append(cnt)
+
+        return extracted_edges
+
+
+    def get_sorted_contours (self, unsorted_contours):
+        (cnts, _) = contours.sort_contours(unsorted_contours, method="top-to-bottom")
+        # Take each row of 3 and sort from left-to-right
+        cube_rows = []
+        row = []
+        for (i, c) in enumerate(cnts, 1):
+            row.append(c)
+            if i % 3 == 0:  
+                (cnts, _) = contours.sort_contours(row, method="left-to-right")
+                cube_rows.append(cnts)
+                row = []
+
+        sorted_contours = []
+        for row in cube_rows:
+            for cnt in row:
+                sorted_contours.append(cnt)
+
+        return sorted_contours
+
+
+    def get_approximated_rectangles_from_abstract_contours (self, contours):
+        rectangle_shaped_contours = []
+        for cnt in contours:
+            epsilon = 0.03 * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            rectangle_shaped_contours.append(approx)
+
+        return rectangle_shaped_contours
+
+
+class ImageDrawer:
+
+    def __init__(self):
+        pass
+
+
+    def draw_contours (self, image, contours, contour_num=-1, color=(0, 255, 0), contour_width=3):
+        cv2.drawContours(image, contours, contour_num, color, contour_width)
+
+
+class ColorMapper:
+    def __init__(self):
+        pass
+
+    def get_contours_color (self, image, contours):
+        color_names = []
+
+        for i in range (1, 10):
+            mask = np.zeros(image.shape[:2], np.uint8)
+            imageDrawer = ImageDrawer ()
+            imageDrawer.draw_contours (mask, contours, i-1, (255, 255, 255), -1)
+
+            mean_val = cv2.mean(image, mask = mask)
+            color_names.append( get_mapped_color_name (mean_val[:3]) )
+
+        return color_names
+
+
 def main ():
-    image = cv2.imread('samples/cube19.png')
-    image = cv2.resize(image, (615, 820))
+    imageLoader = ImageLoader ()
+    imageHandler = ImageHandler ()
 
-    original = image.copy()
+    image = imageLoader.load_image ('./samples', 'cube19.png')
+    image = imageHandler.resize_image (image, 615, 820)
 
-    #grayscale = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    original_hsv = cv2.cvtColor(original, cv2.COLOR_BGR2HSV)
+    original = imageHandler.copy_image (image)
 
-    edges = cv2.Canny(original_hsv, 320, 20)
-    #cv2.imshow('Test cube', edges)
+    original_hsv = imageHandler.convert_to_hsv (original)
 
-    kernel = np.ones((5, 5), np.uint8)
-    dilation = cv2.dilate(edges, kernel, iterations = 3)
-    #cv2.imshow('Test cube', dilation)
+    edges = imageHandler.get_edges_from_image (original_hsv, 320, 20)
 
-    raw_contours, hierarchy = cv2.findContours(dilation, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    dilation = imageHandler.dilatate_edges (edges)
 
-    four_corners = []
+    raw_contours = imageHandler.get_contours_from_image (dilation)
+
     original_img_area = original.shape[0] * original.shape[1]
     max_accepted_area = original_img_area / 3
-    four_corners_area_sum = 0
-    for cnt in raw_contours:
-        epsilon = 0.1 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-
-        if 4 == len(approx):
-            area = cv2.contourArea(cnt)
-
-            if area < max_accepted_area:
-                four_corners.append(cnt)
-                four_corners_area_sum += area
+    four_corners, four_corners_area_sum =  imageHandler.get_four_corners (raw_contours, max_accepted_area)
 
     avg_area_of_four_corners = four_corners_area_sum / len(four_corners)
-    extracted_edges = []
-    for cnt in four_corners:
-        area = cv2.contourArea(cnt)
-        if area > avg_area_of_four_corners:
-            extracted_edges.append(cnt)
+    extracted_edges = imageHandler.get_cube_pieces (four_corners, avg_area_of_four_corners)
 
-    (cnts, _) = contours.sort_contours(extracted_edges, method="top-to-bottom")
-    # Take each row of 3 and sort from left-to-right
-    cube_rows = []
-    row = []
-    for (i, c) in enumerate(cnts, 1):
-        row.append(c)
-        if i % 3 == 0:  
-            (cnts, _) = contours.sort_contours(row, method="left-to-right")
-            cube_rows.append(cnts)
-            row = []
-
-    sorted_contours = []
-    for row in cube_rows:
-        for cnt in row:
-            sorted_contours.append(cnt)
-
+    sorted_contours = imageHandler.get_sorted_contours (extracted_edges)
     print(len(sorted_contours))
 
-    sorted_contours_rectangle = []
-    for cnt in sorted_contours:
-        epsilon = 0.03 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-        sorted_contours_rectangle.append(approx)
+    sorted_contours_rectangle = imageHandler.get_approximated_rectangles_from_abstract_contours (sorted_contours)
 
-    cv2.drawContours(original, sorted_contours_rectangle, -1, (0, 255, 0), 3)
-    #cv2.imshow('Test cube', original)
+    imageDrawer = ImageDrawer ()
+    imageDrawer.draw_contours (original, sorted_contours_rectangle)
+
+    colorMapper = ColorMapper ()
+    cubies_colors = colorMapper.get_contours_color (image, sorted_contours)
 
     print('Cube colors:')
     for i in range (1, 10):
-        mask = np.zeros(original_hsv.shape[:2], np.uint8)
-        cv2.drawContours(mask, sorted_contours, i-1, (255, 255, 255), -1)
-
-        mean_val = cv2.mean(image, mask = mask)
-        #print(mean_val)
-
-        color_name = get_mapped_color_name (mean_val[:3])
-        print(color_name, end =" ")
+        print(cubies_colors[i-1], end =" ")
 
         if i % 3 == 0:
             print()
-
-    cv2.imshow('Test cube', image)
  
     cv2.waitKey(0)
     cv2.destroyAllWindows()
