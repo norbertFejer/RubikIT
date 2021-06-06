@@ -198,6 +198,8 @@ def main ():
 
     sorted_contours_rectangle = imageHandler.get_approximated_rectangles_from_abstract_contours (sorted_contours)
 
+    print(sorted_contours_rectangle[0])
+
     imageDrawer = ImageDrawer ()
     imageDrawer.draw_contours (original, sorted_contours_rectangle)
 
