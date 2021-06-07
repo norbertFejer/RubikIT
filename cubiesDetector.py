@@ -1,11 +1,23 @@
-from numpy.lib.function_base import angle
-from numpy.lib.type_check import imag
 from cube import ColumnType, Cube, CubeRotation, RowType
 from solver import Solver
-import cv2
-import numpy as np
-from imutils import contours
+
+from queue import Queue
+from threading import Thread
 from enum import Enum
+
+import numpy as np
+from numpy.lib.function_base import angle
+from numpy.lib.type_check import imag
+
+import cv2
+from imutils import contours
+
+
+class ArrowDirection(Enum):
+    LEFT = 0
+    RIGHT = 1
+    UP = 2
+    DOWN = 3
 
 
 class ImageLoader:
@@ -16,7 +28,7 @@ class ImageLoader:
         return cv2.imread(path + '/' + image_name)
 
 
-class ImageHandler:
+class ImageProcessor:
     def __init__(self):
         pass
 
@@ -35,10 +47,6 @@ class ImageHandler:
 
     def __convert_to_hsv (self, image):
         return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    
-    def show_image (self, image, image_name=''):
-        cv2.imshow(image_name, image)
 
 
     def __get_edges_from_image (self, image, kernel_size_x, kernel_size_y):
@@ -135,13 +143,6 @@ class ImageHandler:
         return self.__get_approximated_rectangles_from_abstract_contours (sorted_contours)
 
 
-class ArrowDirection(Enum):
-    LEFT = 0
-    RIGHT = 1
-    UP = 2
-    DOWN = 3
-
-
 class ImageDrawer:
 
     def __init__(self):
@@ -150,9 +151,7 @@ class ImageDrawer:
 
     def draw_contours (self, image, contours, contour_num=-1, color=(0, 255, 0), contour_width=3):
         cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
-        # for i in range(len(contours)):
-        #     cv2.drawContours(image, [contours[i]], -1, (0, 255, 0), 3)
-            # cv2.drawContours(image, contours, contour_num, color, contour_width)
+
 
     def draw_arrow_to_row (self, image, cubie_contours, row_num, arrow_direction, color=(0, 255, 0), thickness=9):
         row_num = row_num.value
@@ -162,14 +161,14 @@ class ImageDrawer:
         
         arrow_start_coord = (start_point_coord_1 + start_point_coord_2) / 2
         arrow_start_coord = arrow_start_coord.astype(int)
-        arrow_start_coord = list(arrow_start_coord.flatten())
+        arrow_start_coord = tuple(arrow_start_coord.flatten())
 
         end_point_coord_1 = cubie_contours[row_num * 3 + 2][0] 
         end_point_coord_2 = cubie_contours[row_num * 3 + 2][2]
 
         arrow_end_coord = (end_point_coord_1 + end_point_coord_2) / 2
         arrow_end_coord = arrow_end_coord.astype(int)
-        arrow_end_coord = list(arrow_end_coord.flatten())
+        arrow_end_coord = tuple(arrow_end_coord.flatten())
 
         for cnt in range(len(cubie_contours)):
             rect = cv2.minAreaRect(cubie_contours[cnt])
@@ -208,9 +207,8 @@ class ImageDrawer:
         arrow_end_coord = arrow_end_coord.astype(int)
         arrow_end_coord = list(arrow_end_coord.flatten())
 
-        for cnt in range(len(cubie_contours)):
-            rect = cv2.minAreaRect(cubie_contours[cnt])
-            angle = rect[-1]
+        rect = cv2.minAreaRect(cubie_contours[0])
+        angle = rect[-1]
 
         if angle not in range(30, 70):
             if arrow_direction == ArrowDirection.DOWN:
@@ -220,12 +218,16 @@ class ImageDrawer:
             else:
                 raise ValueError('Wrong arrow direction!')
 
-    def draw_arrow_to_all_column (self, image, cubie_contours, arrow_direction, color=(0, 255, 0), thickness=9):
-        self.draw_arrow_to_column (image, cubie_contours, ColumnType.LEFT, arrow_direction, color)
-        self.draw_arrow_to_column (image, cubie_contours, ColumnType.MIDDLE, arrow_direction, color)
-        self.draw_arrow_to_column (image, cubie_contours, ColumnType.RIGHT, arrow_direction, color)
-            
 
+    def draw_arrow_to_all_column (self, image, cubie_contours, arrow_direction, color=(0, 255, 0), thickness=9):
+        self.draw_arrow_to_column (image, cubie_contours, ColumnType.LEFT, arrow_direction, color, thickness)
+        self.draw_arrow_to_column (image, cubie_contours, ColumnType.MIDDLE, arrow_direction, color, thickness)
+        self.draw_arrow_to_column (image, cubie_contours, ColumnType.RIGHT, arrow_direction, color, thickness)
+
+
+    def show_image (self, image, image_name=''):
+        cv2.imshow(image_name, image)
+            
 
 class ColorMapper:
     def __init__(self):
@@ -274,109 +276,72 @@ class ColorMapper:
         return color_names
 
 
+class VideoProcessor:
+    
+    def __init__ (self, camera_num, camera_width, camera_height):
+        self._camera_num = camera_num
+        self._camera_width = camera_width
+        self._camera_height = camera_height
+
+        self._imageDrawer = ImageDrawer ()
+        self._imageProcessor = ImageProcessor ()
+
+    
+    def start_processing_video (self):
+        print ('VideoProcessor is staring...')
+        self._cap = cv2.VideoCapture(0)
+  
+        while (self._cap.isOpened()):
+        
+            # Capture frame-by-frame
+            self.__capture_image ()
+        
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                break
+        self.stop_processing_video ()
+
+
+    def stop_processing_video (self):
+        self._cap.release()
+        cv2.destroyAllWindows()
+
+
+    def __capture_image (self):
+        _, frame = self._cap.read()
+        frame = cv2.resize(frame, (self._camera_width, self._camera_height), fx = 0, fy = 0, interpolation = cv2.INTER_CUBIC)
+
+        cubie_contours = self._imageProcessor.get_contours (frame)
+        self._imageDrawer.draw_contours (frame, cubie_contours)
+        cv2.imshow('RubikIT', frame)
+
+
+
 
 
 def main ():
 
     imageLoader = ImageLoader()
-    imageHandler = ImageHandler ()
+    imageProcessor = ImageProcessor ()
     imageDrawer = ImageDrawer ()
 
-    image = imageLoader.load_image ('./samples', 'cube02.png')
-    image = imageHandler.resize_image (image, 615, 820)
+    image = imageLoader.load_image ('C:/MyDocs/University/SoftwareSystemModelling/Rubik_cube_solver/samples', 'cube02.png')
+    image = imageProcessor.resize_image (image, 615, 820)
 
-    cubie_contours = imageHandler.get_contours (image)
-    # imageDrawer.draw_arrow_to_row (image, cubie_contours, RowType.TOP, ArrowDirection.LEFT, (0, 0, 255), 9)
+    cubie_contours = imageProcessor.get_contours (image)
 
-    # imageDrawer.draw_arrow_to_all_row (image, cubie_contours, ArrowDirection.LEFT)
+    # # imageDrawer.draw_arrow_to_all_row (image, cubie_contours, ArrowDirection.RIGHT)
+    imageDrawer.draw_contours (image, cubie_contours)
+    imageDrawer.show_image (image)
 
-    # imageDrawer.draw_arrow_to_column (image, cubie_contours, ColumnType.MIDDLE, ArrowDirection.UP)
+    #videoProcessor = VideoProcessor(0, 540, 540)
+    #video_producer_thread = Thread(target = videoProcessor.start_processing_video ())
+    #video_producer_thread.start()
 
-    imageDrawer.draw_arrow_to_all_column (image, cubie_contours, ArrowDirection.UP, (0, 0, 255))
-
-
-    cv2.imshow('Main window', image)
-
-
-#==============================================================================
-
-# capture frames from a camera
-
-    # 0 - laptop kamera
-    # 1 - kulso kamera
-    # cap = cv2.VideoCapture(1)
-
-    # # loop runs if capturing has been initialized
-    # while(1):
-
-    #     ret, frame = cap.read()
-
-    #     # imageLoader = ImageLoader ()
-    #     imageHandler = ImageHandler ()
-
-
-    #     # image = imageLoader.load_image ('./samples', 'cube19.png')
-
-    #     # frame = imageHandler.resize_image (frame, 615, 820)
-
-
-    #     # original = imageHandler.copy_image (frame)
-
-    #     original_hsv = imageHandler.convert_to_hsv (frame)
-
-    #     edges = imageHandler.get_edges_from_image (original_hsv, 320, 20)
-
-    #     dilation = imageHandler.dilatate_edges (edges)
-
-    #     raw_contours = imageHandler.get_contours_from_image (dilation)
-
-    #     original_img_area = frame.shape[0] * frame.shape[1]
-    #     max_accepted_area = original_img_area / 3
-    #     four_corners, four_corners_area_sum =  imageHandler.get_four_corners (raw_contours, max_accepted_area)
-
-    #     avg_area_of_four_corners = four_corners_area_sum / len(four_corners)
-    #     extracted_edges = imageHandler.get_cube_pieces (four_corners, avg_area_of_four_corners)
-
-    #     sorted_contours = imageHandler.get_sorted_contours (extracted_edges)
-    #     # print(len(sorted_contours))
-
-    #     sorted_contours_rectangle = imageHandler.get_approximated_rectangles_from_abstract_contours (sorted_contours)
-
-    #     imageDrawer = ImageDrawer ()
-    #     imageDrawer.draw_contours (frame, sorted_contours_rectangle)
-
-
-    #     colorMapper = ColorMapper ()
-    #     cubies_colors = colorMapper.get_contours_color (frame, sorted_contours)
-
-        
-    #     cv2.imshow('Main window', frame)
-        
-    #     # Wait for Esc key to stop
-    #     k = cv2.waitKey(5) & 0xFF
-    #     if k == 27:
-    #         break
-    
-
-
-    # print('Cube colors:')
-    # for i in range (1, 10):
-    #     print(cubies_colors[i-1], end =" ")
-
-    #     if i % 3 == 0:
-    #         print()
-
-
-    # cap.release()
-
-#==============================================================================
-
-   
-    cv2.waitKey(0)
+    cv2.waitKey (0)
     cv2.destroyAllWindows()
+    
 
   
 
 if __name__ == "__main__":
-    
     main ()
