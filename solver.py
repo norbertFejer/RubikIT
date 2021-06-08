@@ -27,10 +27,6 @@ class Solver:
     def __init__(self, cube):
         self._cube = Cube (cube)
         assert self._cube.is_valid_configuration () == True
-        self._movements = []
-
-    def get_movements (self):
-        return self._movements
 
 
     def print_cube(self):
@@ -43,22 +39,20 @@ class Solver:
         # check if given colored center-facelet is in the middle layer
         if upper_right_cubie_color in (self._cube.get_facelet_color (FaceType.LEFT, 5), self._cube.get_facelet_color (FaceType.RIGHT, 5)):
             self._cube.rotate_row (RowType.MIDDLE, RowRotation.LEFT)
-            self._movements.append (self.Movement.MIDDLE_ROW_LEFT.value)
 
         # turn given colored center-facelet to top
         while self._cube.get_facelet_color (FaceType.TOP, 5) != upper_right_cubie_color:
             self._cube.rotate_column (ColumnType.MIDDLE, ColumnRotation.UP)
-            self._movements.append (self.Movement.MIDDLE_COLUMN_UP.value)
 
 
     def solve_cube (self):
         self.get_first_step_directions ()
         self.get_second_step_directions ()
         self.get_third_step_directions ()
-        self.get_fourth_step_directions ()
-        self.get_fifth_step_directions ()
-        self.get_sixth_step_directions ()
-        self.get_seventh_step_directions ()
+        #self.get_fourth_step_directions ()
+        #self.get_fifth_step_directions ()
+        #self.get_sixth_step_directions ()
+        #self.get_seventh_step_directions ()
 
     
     def get_first_step_directions (self):
@@ -68,7 +62,6 @@ class Solver:
             
             # turn the cube left
             self._cube.rotate_cube (CubeRotation.LEFT)
-            self._movements.append (self.Movement.CUBE_LEFT.value)
 
             # getting the starting colors
             top_color = self._cube.get_facelet_color (FaceType.TOP, 7)
@@ -661,6 +654,7 @@ def main ():
                 "    YYW\n"
                 "    WYW\n"
                 "    WOR")
+
 
     solver = Solver (cube)
     solver.solve_cube ()

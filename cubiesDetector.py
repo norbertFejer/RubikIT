@@ -1,10 +1,11 @@
 from cube import ColumnType, Cube, CubeRotation, RowType
-from solver import Solver
+from solver import *
 
 from queue import Queue
 from threading import Thread
 from enum import Enum
 import time
+import copy
 
 import numpy as np
 from numpy.lib.function_base import angle
@@ -266,95 +267,102 @@ class ImageDrawer:
         pass
 
 
-    def draw_contours (self, image, contours, contour_num=-1, color=(0, 255, 0), contour_width=3):
-        cv2.drawContours(image, contours, -1, (0, 255, 0), 3)
+    def draw_contours (self, contour_num=-1, color=(0, 255, 0), contour_width=3):
+        cv2.drawContours(self._image, self._cubie_contours, -1, (0, 255, 0), 3)
 
 
-    def draw_arrow_to_row (self, image, cubie_contours, row_num, arrow_direction, color=(0, 255, 0), thickness=9):
+    def attach_image (self, image):
+        self._image = image
+
+    def attach_cubie_contours (self, cubie_contours):
+        self._cubie_contours = cubie_contours
+
+
+    def draw_arrow_to_row (self, row_num, arrow_direction, color=(0, 255, 0), thickness=9):
         row_num = row_num.value
 
-        start_point_coord_1 = cubie_contours[row_num * 3][1]
-        start_point_coord_2 = cubie_contours[row_num * 3][3]
+        start_point_coord_1 = self._cubie_contours[row_num * 3][1]
+        start_point_coord_2 = self._cubie_contours[row_num * 3][3]
         
         arrow_start_coord = (start_point_coord_1 + start_point_coord_2) / 2
         arrow_start_coord = arrow_start_coord.astype(int)
         arrow_start_coord = tuple(arrow_start_coord.flatten())
 
-        end_point_coord_1 = cubie_contours[row_num * 3 + 2][0] 
-        end_point_coord_2 = cubie_contours[row_num * 3 + 2][2]
+        end_point_coord_1 = self._cubie_contours[row_num * 3 + 2][0] 
+        end_point_coord_2 = self._cubie_contours[row_num * 3 + 2][2]
 
         arrow_end_coord = (end_point_coord_1 + end_point_coord_2) / 2
         arrow_end_coord = arrow_end_coord.astype(int)
         arrow_end_coord = tuple(arrow_end_coord.flatten())
 
-        for cnt in range(len(cubie_contours)):
-            rect = cv2.minAreaRect(cubie_contours[cnt])
+        for cnt in range(len(self._cubie_contours)):
+            rect = cv2.minAreaRect(self._cubie_contours[cnt])
             angle = rect[-1]
 
         if angle not in range(30, 70):
             if arrow_direction == ArrowDirection.RIGHT:
-                cv2.arrowedLine(image, arrow_start_coord, arrow_end_coord, color, thickness)
+                cv2.arrowedLine(self._image, arrow_start_coord, arrow_end_coord, color, thickness)
             elif arrow_direction == ArrowDirection.LEFT:
-                cv2.arrowedLine(image, arrow_end_coord, arrow_start_coord, color, thickness)
+                cv2.arrowedLine(self._image, arrow_end_coord, arrow_start_coord, color, thickness)
             else:
                 raise ValueError('Wrong arrow direction!')
 
 
-    def draw_arrow_to_all_row (self, image, cubie_contours, arrow_direction,  color=(0, 255, 0), thickness=9):
-        self.draw_arrow_to_row (image, cubie_contours, RowType.TOP, arrow_direction, color)
-        self.draw_arrow_to_row (image, cubie_contours, RowType.MIDDLE, arrow_direction, color)
-        self.draw_arrow_to_row (image, cubie_contours, RowType.BOTTOM, arrow_direction, color)
+    def draw_arrow_to_all_row (self, arrow_direction,  color=(0, 255, 0), thickness=9):
+        self.draw_arrow_to_row (RowType.TOP, arrow_direction, color, thickness)
+        self.draw_arrow_to_row (RowType.MIDDLE, arrow_direction, color, thickness)
+        self.draw_arrow_to_row (RowType.BOTTOM, arrow_direction, color, thickness)
 
 
-    def draw_arrow_to_column (self, image, cubie_contours, column_num, arrow_direction, color=(0, 255, 0), thickness=9):
+    def draw_arrow_to_column (self, column_num, arrow_direction, color=(0, 255, 0), thickness=9):
         column_num = column_num.value
 
-        start_point_coord_1 = cubie_contours[column_num][1] 
-        start_point_coord_2 = cubie_contours[column_num][3]
+        start_point_coord_1 = self._cubie_contours[column_num][1] 
+        start_point_coord_2 = self._cubie_contours[column_num][3]
         
         arrow_start_coord = (start_point_coord_1 + start_point_coord_2) / 2
         arrow_start_coord = arrow_start_coord.astype(int)
-        arrow_start_coord = list(arrow_start_coord.flatten())
+        arrow_start_coord = tuple(arrow_start_coord.flatten())
 
 
-        end_point_coord_1 = cubie_contours[column_num + 6][0] 
-        end_point_coord_2 = cubie_contours[column_num + 6][2]
+        end_point_coord_1 = self._cubie_contours[column_num + 6][0] 
+        end_point_coord_2 = self._cubie_contours[column_num + 6][2]
 
         arrow_end_coord = (end_point_coord_1 + end_point_coord_2) / 2
         arrow_end_coord = arrow_end_coord.astype(int)
-        arrow_end_coord = list(arrow_end_coord.flatten())
+        arrow_end_coord = tuple(arrow_end_coord.flatten())
 
-        rect = cv2.minAreaRect(cubie_contours[0])
+        rect = cv2.minAreaRect(self._cubie_contours[0])
         angle = rect[-1]
 
         if angle not in range(30, 70):
             if arrow_direction == ArrowDirection.DOWN:
-                cv2.arrowedLine(image, arrow_start_coord, arrow_end_coord, color, thickness)
+                cv2.arrowedLine(self._image, arrow_start_coord, arrow_end_coord, color, thickness)
             elif arrow_direction == ArrowDirection.UP:
-                cv2.arrowedLine(image, arrow_end_coord, arrow_start_coord, color, thickness)
+                cv2.arrowedLine(self._image, arrow_end_coord, arrow_start_coord, color, thickness)
             else:
                 raise ValueError('Wrong arrow direction!')
 
 
-    def draw_arrow_to_all_column (self, image, cubie_contours, arrow_direction, color=(0, 255, 0), thickness=9):
-        self.draw_arrow_to_column (image, cubie_contours, ColumnType.LEFT, arrow_direction, color, thickness)
-        self.draw_arrow_to_column (image, cubie_contours, ColumnType.MIDDLE, arrow_direction, color, thickness)
-        self.draw_arrow_to_column (image, cubie_contours, ColumnType.RIGHT, arrow_direction, color, thickness)
+    def draw_arrow_to_all_column (self, arrow_direction, color=(0, 255, 0), thickness=9):
+        self.draw_arrow_to_column (ColumnType.LEFT, arrow_direction, color, thickness)
+        self.draw_arrow_to_column (ColumnType.MIDDLE, arrow_direction, color, thickness)
+        self.draw_arrow_to_column (ColumnType.RIGHT, arrow_direction, color, thickness)
 
 
     def show_image (self, image, image_name=''):
         cv2.imshow(image_name, image)
 
     
-    def draw_rectangle (self, image, start_point, end_point, color=(255, 0, 0), thickness=9):
-        cv2.rectangle(image, start_point, end_point, color, thickness)
+    def draw_rectangle (self, start_point, end_point, color=(255, 0, 0), thickness=9):
+        cv2.rectangle(self._image, start_point, end_point, color, thickness)
             
 
 class ColorMapper:
     def __init__(self):
         pass
 
-    def calculate_color_distance(self, color1, color2):
+    def __calculate_color_distance(self, color1, color2):
         dist_r = (color1[0] - color2[0]) * (color1[0] - color2[0])
         dist_g = (color1[1] - color2[1]) * (color1[1] - color2[1])
         dist_b = (color1[2] - color2[2]) * (color1[2] - color2[2])
@@ -362,20 +370,20 @@ class ColorMapper:
         return (dist_r + dist_g + dist_b)
 
 
-    def get_mapped_color_name(self, color):
+    def __get_mapped_color_name(self, color):
         named_colors = {
             "white": (255,255,255),
-            "blue": (255, 0, 0),
-            "yellow": (45, 175, 220),
-            "green": (0, 255, 0),
-            "red": (0, 0, 255),
-            "orange": (0, 85, 255)
+            "blue": (96, 33, 13),
+            "yellow": (29, 137, 189),
+            "green": (26, 69, 3),
+            "red": (44, 35, 168),
+            "orange": (21, 87, 209)
         }
 
         min_distance = 195075
         closest_color_name = ''
         for color_name, color_value in named_colors.items():
-            tmp_dist = self.calculate_color_distance (color, color_value)
+            tmp_dist = self.__calculate_color_distance (color, color_value)
 
             if tmp_dist < min_distance:
                 min_distance = tmp_dist
@@ -388,11 +396,10 @@ class ColorMapper:
 
         for i in range (1, 10):
             mask = np.zeros(image.shape[:2], np.uint8)
-            imageDrawer = ImageDrawer ()
-            imageDrawer.draw_contours (mask, contours, i-1, (255, 255, 255), -1)
+            cv2.drawContours(mask, contours, i-1, (255, 255, 255), -1)
 
             mean_val = cv2.mean(image, mask = mask)
-            color_names.append(self.get_mapped_color_name (mean_val[:3]) )
+            color_names.append(self.__get_mapped_color_name (mean_val[:3]) )
 
         return color_names
 
@@ -430,7 +437,6 @@ class VideoStreamer:
 
 
     def has_more_frame (self):
-        print(self._frame_queue.qsize())
         return self._frame_queue.qsize() > 0
 
 
@@ -440,35 +446,267 @@ class VideoStreamer:
 
 
 class VideoProcessor:
-    def __init__ (self, videoStreamer, frame_width, frame_height):
+    def __init__ (self, videoStreamer, frame_width, frame_height, state_manager, instruction_helper):
         self._videoStreamer = videoStreamer
         self._frame_width = frame_width
         self._frame_height = frame_height
+        self._state_manager = state_manager
         self._imageProcessor = ImageProcessor ()
         self._imageDrawer = ImageDrawer ()
+        self._colorMapper = ColorMapper ()
+        self._instruction_helper = instruction_helper
+
+        self._instruction_helper.attach_image_drawer (self._imageDrawer)
 
 
     def start_processing_video (self):
-        print ('VideoProcessor is started...')
-
         self._videoStreamer.start_stream ()
 
         while True:
 
             if self._videoStreamer.has_more_frame ():
-                frame = self._videoStreamer.read_frame ()
-                frame = cv2.resize(frame, (self._frame_width, self._frame_height), fx = 0, fy = 0, interpolation = cv2.INTER_CUBIC)
+                self._frame = self._videoStreamer.read_frame ()
+                self._frame = cv2.resize(self._frame, (self._frame_width, self._frame_height), fx = 0, fy = 0, interpolation = cv2.INTER_CUBIC)
 
-                cubie_contours = self._imageProcessor.get_contours (frame)
-                self._imageDrawer.draw_contours (frame, cubie_contours)
-                self._imageDrawer.draw_rectangle (frame, (170, 100), (470, 500))
-                cv2.imshow('RubikIT', frame)
+                self._imageDrawer.attach_image (self._frame)
+
+                frame_for_contours = self._frame.copy()
+                frame_for_colors = self._frame.copy()
+
+                self._cubie_contours = self._imageProcessor.get_contours (frame_for_contours)
+                if self._cubie_contours:
+                    self._imageDrawer.attach_cubie_contours (self._cubie_contours)
+
+                    #self._imageDrawer.draw_contours ()
+                    face_colors = self._colorMapper.get_contours_color (frame_for_colors, self._cubie_contours)
+                    self._state_manager.persist_state (face_colors)
+
+                    self._instruction_helper.show_next_instruction ()
+
+                self._imageDrawer.draw_rectangle ((170, 100), (470, 500))
+                cv2.imshow('RubikIT', self._frame)
 
             if cv2.waitKey(25) & 0xFF == ord('q'):
                 break
 
         self._videoStreamer.stop_stream ()
 
+
+class Observer:
+
+    def __init__(self):
+        self._observers = []
+ 
+    def notify(self, data, modifier = None):
+        for observer in self._observers:
+            if modifier != observer:
+                observer.update(self, data)
+ 
+    def attach(self, observer):
+        if observer not in self._observers:
+            self._observers.append(observer)
+ 
+    def detach(self, observer):
+        try:
+            self._observers.remove(observer)
+        except ValueError:
+            pass
+
+
+class StateManager (Observer):
+    def __init__ (self, safety_level = 10):
+        Observer.__init__(self)
+        self._safety_level = safety_level
+        self._state_change_safety_counter = 0
+        self._tmp_actual_state = []
+        self._previous_state = []
+        self._actual_state = []
+
+    
+    def persist_state (self, actual_state):
+        if self._previous_state == actual_state:
+            self._state_change_safety_counter += 1
+        else:
+            self._previous_state = actual_state
+            self._state_change_safety_counter = 0
+
+
+        if self._state_change_safety_counter == self._safety_level and self._actual_state != actual_state:
+            self._actual_state = actual_state
+            self._state_change_safety_counter = 0
+            self.notify (actual_state)
+
+
+    def get_actual_state (self):
+        return self._actual_state
+
+
+class InstructionHelper ():
+    def __init__ (self):
+        self._imageDrawer = None
+        self._actual_instruction = []
+
+
+    def attach_image_drawer (self, imageDrawer):
+        self._imageDrawer = imageDrawer
+
+
+    def add_instruction (self, instruction):
+        self._actual_instruction = instruction
+        
+
+    def show_next_instruction (self):
+        if self._imageDrawer == None or len(self._actual_instruction) == 0:
+            return
+
+        if self._actual_instruction[0] == 'rotate_cube':
+
+            if self._actual_instruction[1] == CubeRotation.RIGTH:
+                self._imageDrawer.draw_arrow_to_all_row (ArrowDirection.RIGHT)
+                return
+
+            if self._actual_instruction[1] == CubeRotation.LEFT:
+                self._imageDrawer.draw_arrow_to_all_row (ArrowDirection.LEFT)
+                return
+
+            if self._actual_instruction[1] == CubeRotation.DOWN:
+                self._imageDrawer.draw_arrow_to_all_column (ArrowDirection.DOWN)
+                return
+
+            if self._actual_instruction[1] == CubeRotation.UP:
+                self._imageDrawer.draw_arrow_to_all_column (ArrowDirection.UP)
+                return
+
+        if self._actual_instruction[0] == 'rotate_row':
+            self._imageDrawer.draw_arrow_to_row (self._actual_instruction[1], self._actual_instruction[2])
+
+        if self._actual_instruction[0] == 'rotate_column':
+            self._imageDrawer.draw_arrow_to_column (self._actual_instruction[1], self._actual_instruction[2])
+
+        if self._actual_instruction[0] == 'rotate_front_face':
+            print('Front face not implemented yet!')
+
+
+
+class SolverProcess:
+
+    def __init__ (self):
+        self._stateManager = StateManager ()
+        self._instruction_helper = InstructionHelper ()
+        self._state_change_counter = 0
+        self._last_red_state = []
+        self._actual_movement_pos = 0
+
+
+    def __initialize_state (self):
+        stateManager = StateManager ()
+        stateManager.attach (self)
+
+        videoStreamer = VideoStreamer(0, 4)
+        videoStreamer.start_stream ()
+
+        self._videoProcessor = VideoProcessor (videoStreamer, 640, 640, stateManager, self._instruction_helper)
+
+        video_processor_thread = Thread(target=self._videoProcessor.start_processing_video, args=())
+        video_processor_thread.start()
+
+
+    def solve_cube (self):
+        self.__initialize_state ()
+
+        is_invalid_cube = True
+        while is_invalid_cube:
+            cube_representation = self.__get_cube_representation ()
+            cube = Cube(cube_representation)
+
+            try:
+                solver = Solver (cube)
+                is_invalid_cube = False
+            except:
+                is_invalid_cube = True
+
+        solver.solve_cube ()
+
+        global movements
+        while self._actual_movement_pos < len(movements):
+            time.sleep(0.5)
+    
+
+    def __get_cube_representation (self):
+        self._state_change_counter = 0
+        front_face = ''
+        top_face = ''
+        back_face = ''
+        bottom_face = ''
+        left_face = ''
+        right_face = ''
+
+        sleep_value = 0.5
+        while self._state_change_counter != 1:
+            time.sleep(sleep_value)
+        front_face = self._last_red_state
+
+        instruction = ['rotate_cube', CubeRotation.UP]
+        self._instruction_helper.add_instruction (instruction[:])
+        while self._state_change_counter != 2:
+            time.sleep(sleep_value)
+        top_face = self._last_red_state
+
+        while self._state_change_counter != 3:
+            time.sleep(sleep_value)
+        back_face = self._last_red_state
+
+        while self._state_change_counter != 4:
+            time.sleep(sleep_value)
+        bottom_face = self._last_red_state
+
+        instruction = ['rotate_cube', CubeRotation.LEFT]
+        self._instruction_helper.add_instruction (instruction[:])
+        while self._state_change_counter != 5:
+            time.sleep(sleep_value)
+        left_face = self._last_red_state
+
+        while self._state_change_counter != 6:
+            time.sleep(sleep_value)
+
+        while self._state_change_counter != 7:
+            time.sleep(sleep_value)
+        right_face = self._last_red_state
+
+        instruction = ['rotate_cube', CubeRotation.DOWN]
+        self._instruction_helper.add_instruction (instruction[:])
+        while self._state_change_counter != 8:
+            time.sleep(0.1)
+
+        instruction = ['']
+        self._instruction_helper.add_instruction (instruction[:])
+
+        cube_representation = (top_face + 
+                                    left_face[6] + left_face[3]+ left_face[0] + front_face[0:3] + right_face[2] + right_face[5] + right_face[8] + back_face[8] + back_face[7] + back_face[6] +
+                                    left_face[7] + left_face[4]+ left_face[1] + front_face[3:6] + right_face[1] + right_face[4] + right_face[7] + back_face[5] + back_face[4] + back_face[3] +
+                                    left_face[8] + left_face[5]+ left_face[2] + front_face[6:9] + right_face[0] + right_face[3] + right_face[6] + back_face[2] + back_face[1] + back_face[0] +
+                                    bottom_face)
+
+        return cube_representation
+
+    
+    def __decode_mapped_color (self, color_list):
+        face_colors = ''
+        for color in color_list:
+            face_colors += color[0].upper()
+
+        return face_colors
+
+
+    def update (self, subject, actual_state):
+        print (actual_state)
+        self._last_red_state = self.__decode_mapped_color (actual_state)
+
+        if self._state_change_counter >= 8:
+            instruction = movements[self._actual_movement_pos]
+            self._instruction_helper.add_instruction (instruction[:])
+
+        self._state_change_counter += 1
 
 
 def test_1 ():
@@ -478,11 +716,16 @@ def test_1 ():
 
     image = imageLoader.load_image ('C:/MyDocs/University/SoftwareSystemModelling/Rubik_cube_solver/samples', 'real.png')
     image = imageProcessor.resize_image (image, 640, 640)
+    original = image.copy ()
 
     cubie_contours = imageProcessor.get_contours (image)
     print(len(cubie_contours), 'original contour len')
     cubies = imageProcessor.get_valid_cubies_from_contours (cubie_contours)
     print(len(cubies), 'cubies len')
+
+    cm = ColorMapper ()
+    face_colors = cm.get_contours_color (original, cubie_contours)
+    print (face_colors)
 
     # p1 = (300, 300)
     # p2 = (0, 360)
@@ -494,11 +737,10 @@ def test_1 ():
 
 
 def main_loop ():
-    videoStreamer = VideoStreamer(0, 4)
-    videoStreamer.start_stream ()
+    solverProcess = SolverProcess ()
+    solverProcess.solve_cube ()
 
-    videoProcessor = VideoProcessor (videoStreamer, 640, 640)
-    videoProcessor.start_processing_video ()
+    
 
 
 

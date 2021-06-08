@@ -65,6 +65,9 @@ class Piece:
         return self.value
 
 
+movements = []
+
+
 class Cube:
 
     def __init__(self, cube_str):
@@ -123,6 +126,10 @@ class Cube:
                     "    {}{}{}")
 
         return "    " + template.format(*self._colors).strip()
+
+
+    def get_movements (self):
+        return self._movements
 
 
     def __eq__(self, other):
@@ -208,6 +215,10 @@ class Cube:
 
 
     def rotate_row(self, row_type, direction):
+        global movements
+        instruction = ['rotate_row', row_type.value, direction.value]
+        movements.append (instruction)
+
         front_row = self.__get_row_of_face(row_type, FaceType.FRONT)
         right_row = self.__get_row_of_face(row_type, FaceType.RIGHT)
         original_right_row = copy.deepcopy(right_row)
@@ -274,6 +285,10 @@ class Cube:
 
 
     def rotate_column(self, column_type, direction):
+        global movements
+        instruction = ['rotate_column', column_type.value, direction.value]
+        movements.append (instruction)
+
         front_column = self.__get_column_of_face(column_type, FaceType.FRONT)
         bottom_column = self.__get_column_of_face(column_type, FaceType.BOTTOM)
         original_bottom_column = copy.deepcopy(bottom_column)
@@ -345,6 +360,10 @@ class Cube:
                     self.__copy_colors_reversed_order(front_pieces, original_top_pieces)
 
     def rotate_cube (self, rotation):
+        global movements
+        instruction = ['rotate_cube', rotation.value]
+        movements.append (instruction)
+
         if rotation == CubeRotation.UP:
             self.rotate_column(ColumnType.LEFT, ColumnRotation.UP)
             self.rotate_column(ColumnType.MIDDLE, ColumnRotation.UP)
@@ -367,6 +386,10 @@ class Cube:
             self.rotate_row(RowType.BOTTOM, RowRotation.RIGHT)
 
     def rotate_front_face (self, rotation):
+        global movements
+        instruction = ['rotate_front_face', rotation.value]
+        movements.append (instruction)
+
         top_pieces = self.__get_row_of_face(RowType.BOTTOM, FaceType.TOP)
         bottom_pieces = self.__get_row_of_face(RowType.TOP, FaceType.BOTTOM)
         original_bottom_pieces = copy.deepcopy(bottom_pieces)
