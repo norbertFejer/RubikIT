@@ -4,6 +4,7 @@ from solver import Solver
 from queue import Queue
 from threading import Thread
 from enum import Enum
+import time
 
 import numpy as np
 from numpy.lib.function_base import angle
@@ -206,7 +207,6 @@ class ImageProcessor:
         cubie_contours = []
         for actual_cnt in contours:
             start_coord_actual_cnt, end_coord_actual_cnt = self.get_contour_max_boundary_coordinates (actual_cnt)
-            actual_ctn_area = cv2.contourArea(actual_cnt)
 
             match_x_coord_count = 0
             match_y_coord_count = 0
@@ -221,13 +221,9 @@ class ImageProcessor:
                     continue
 
                 if self.is_points_in_same_interval (start_coord_actual_cnt, start_coord_other_cnt):
-                    #other_ctn_area = cv2.contourArea(cnt)
-                    #if (actual_ctn_area >= other_ctn_area * 0.8) and (actual_ctn_area <= other_ctn_area * 1.2):
                     match_x_coord_count += 1
                 
                 if self.is_points_in_same_interval (end_coord_actual_cnt, end_coord_other_cnt):
-                    #other_ctn_area = cv2.contourArea(cnt)
-                    #if (actual_ctn_area >= other_ctn_area * 0.8) and (actual_ctn_area <= other_ctn_area * 1.2):
                     match_y_coord_count += 1
 
             if match_x_coord_count >= 4 and match_y_coord_count >= 4:
@@ -401,44 +397,77 @@ class ColorMapper:
         return color_names
 
 
-class VideoProcessor:
+class VideoStreamer:
+
+    def __init__(self, camera_num, queueSize=4):
+        self._stream = cv2.VideoCapture(camera_num)
+        self._frame_queue = Queue(maxsize=queueSize)
+
+
+    def start_stream(self):
+        streamer_thread = Thread(target=self.__read_frames_to_queue, args=())
+        streamer_thread.daemon = True
+        streamer_thread.start()
+        return self
+
     
-    def __init__ (self, camera_num, camera_width, camera_height):
-        self._camera_num = camera_num
-        self._camera_width = camera_width
-        self._camera_height = camera_height
+    def __read_frames_to_queue(self):
+        while self._stream.isOpened():
 
-        self._imageDrawer = ImageDrawer ()
-        self._imageProcessor = ImageProcessor ()
+            if not self._frame_queue.full():
+                (grabbed, frame) = self._stream.read ()
 
-    
-    def start_processing_video (self):
-        print ('VideoProcessor is staring...')
-        self._cap = cv2.VideoCapture(0)
-  
-        while (self._cap.isOpened()):
-        
-            # Capture frame-by-frame
-            self.__capture_image ()
-        
-            if cv2.waitKey(25) & 0xFF == ord('q'):
-                break
-        self.stop_processing_video ()
+                if not grabbed:
+                    continue
+
+                self._frame_queue.put(frame)
 
 
-    def stop_processing_video (self):
-        self._cap.release()
+    def read_frame(self):
+        if self._frame_queue.qsize() > 0:
+            return self._frame_queue.get()
+        return []
+
+
+    def has_more_frame (self):
+        print(self._frame_queue.qsize())
+        return self._frame_queue.qsize() > 0
+
+
+    def stop_stream (self):
+        self._stream.release()
         cv2.destroyAllWindows()
 
 
-    def __capture_image (self):
-        _, frame = self._cap.read()
-        frame = cv2.resize(frame, (self._camera_width, self._camera_height), fx = 0, fy = 0, interpolation = cv2.INTER_CUBIC)
+class VideoProcessor:
+    def __init__ (self, videoStreamer, frame_width, frame_height):
+        self._videoStreamer = videoStreamer
+        self._frame_width = frame_width
+        self._frame_height = frame_height
+        self._imageProcessor = ImageProcessor ()
+        self._imageDrawer = ImageDrawer ()
 
-        cubie_contours = self._imageProcessor.get_contours (frame)
-        self._imageDrawer.draw_contours (frame, cubie_contours)
-        #self._imageDrawer.draw_rectangle (frame, (170, 100), (470, 500))
-        cv2.imshow('RubikIT', frame)
+
+    def start_processing_video (self):
+        print ('VideoProcessor is started...')
+
+        self._videoStreamer.start_stream ()
+
+        while True:
+
+            if self._videoStreamer.has_more_frame ():
+                frame = self._videoStreamer.read_frame ()
+                frame = cv2.resize(frame, (self._frame_width, self._frame_height), fx = 0, fy = 0, interpolation = cv2.INTER_CUBIC)
+
+                cubie_contours = self._imageProcessor.get_contours (frame)
+                self._imageDrawer.draw_contours (frame, cubie_contours)
+                self._imageDrawer.draw_rectangle (frame, (170, 100), (470, 500))
+                cv2.imshow('RubikIT', frame)
+
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                break
+
+        self._videoStreamer.stop_stream ()
 
 
 
@@ -464,24 +493,23 @@ def test_1 ():
     imageDrawer.show_image (image)
 
 
-def test_2 ():
-    videoProcessor = VideoProcessor(1, 640, 640)
-    video_producer_thread = Thread(target = videoProcessor.start_processing_video ())
-    video_producer_thread.start()
+def main_loop ():
+    videoStreamer = VideoStreamer(0, 4)
+    videoStreamer.start_stream ()
+
+    videoProcessor = VideoProcessor (videoStreamer, 640, 640)
+    videoProcessor.start_processing_video ()
 
 
 
 def main ():
 
     #test_1 ()
-    test_2 ()
-    
+    main_loop ()
 
     cv2.waitKey (0)
     cv2.destroyAllWindows()
     
-
-  
 
 if __name__ == "__main__":
     main ()
